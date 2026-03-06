@@ -676,7 +676,6 @@ def gappy_fill_vertical(data):
             data[:, j][ind[0] : ind[-1]] = np.interp(int, ind, data[ind, j])
     return data
 
-
 def find_gaps(sample_time, timebase, maxgap):
     """
     Return an index into *timebase* where True are times in gaps of *sample_time* larger
