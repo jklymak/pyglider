@@ -140,7 +140,8 @@ def raw_to_rawnc(
                     # Try to read the file with polars. If the file is corrupted (rare), file read will fail and file
                     # is appended to badfiles
                     try:
-                        out = pl.read_csv(f, separator=';')
+                        with open(f, 'rb') as fin:
+                            out = pl.read_csv(fin, separator=';')
                     except Exception as e:
                         _log.warning(f'Exception reading {f}: {e}')
                         _log.warning(f'Could not read {f}')
@@ -632,8 +633,13 @@ def raw_to_timeseries(
         )[0]
         + 1
     )
-    ds[lon_name].values = np.interp(ds.time, ds.time[good], ds[lon_name][good])
-    ds[lat_name].values = np.interp(ds.time, ds.time[good], ds[lat_name][good])
+    if len(good) >= 2:
+        ds[lon_name].values = np.interp(ds.time, ds.time[good], ds[lon_name][good])
+        ds[lat_name].values = np.interp(ds.time, ds.time[good], ds[lat_name][good])
+    else:
+        _log.warning(
+            'Not enough good lat/lon fixes to interpolate - using original values'
+        )
 
     # keep only timestamps with data from one of a set of variables
     if 'keep_variables' in ncvar:
