@@ -5,8 +5,10 @@ SeaExplorer-specific processing routines.
 
 import datetime
 import glob
+import gzip
 import logging
 import os
+from pathlib import Path
 import warnings
 
 import numpy as np
@@ -39,6 +41,36 @@ def _needsupdating(ftype, fin, fout):
 
 def _sort(ds):
     return ds.sortby('time')
+
+def _robust_polars_read_csv(fname):
+    """
+    Read csv or csv.gz with polars robustly.
+
+    Forces encoding for windows.
+
+    Parameters
+    ----------
+    fname : str
+        Path to the csv or csv.gz file.
+
+    Returns
+    -------
+    pl.DataFrame
+        The polars DataFrame read from the file.
+    """
+
+    path = Path(fname)
+
+    # 1. Handle GZIP files
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8", errors="replace") as f:
+            # Read text, convert to bytes, and hand to Polars
+            return pl.read_csv(f.read().encode("utf-8"))
+
+    # 2. Handle Uncompressed/Raw files
+    else:
+        # Using utf-8-lossy prevents Windows from crashing on rogue bytes
+        return pl.read_csv(path, encoding="utf-8-lossy")
 
 
 def raw_to_rawnc(
@@ -140,8 +172,9 @@ def raw_to_rawnc(
                     # Try to read the file with polars. If the file is corrupted (rare), file read will fail and file
                     # is appended to badfiles
                     try:
-                        with open(f, 'rb') as fin:
-                            out = pl.read_csv(fin, separator=';')
+                        out = _robust_polars_read_csv(f)
+                        # with open(f, 'rb') as fin:
+                        #    out = pl.read_csv(fin, separator=';')
                     except Exception as e:
                         _log.warning(f'Exception reading {f}: {e}')
                         _log.warning(f'Could not read {f}')
